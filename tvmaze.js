@@ -17,23 +17,22 @@
       }
  */
 async function searchShows(query) {
-	const res = await axios.get('http://api.tvmaze.com/singlesearch/shows', {
+	const res = await axios.get('http://api.tvmaze.com/search/shows', {
 		params: { q: `${query}` }
 	});
 
-	const id = res.data.id;
-	const name = res.data.name;
-	const summary = res.data.summary;
-	const image = res.data.image.medium;
+	// get() returns an array of shows. Use map() to iterate through results and populate a new array with id, name, summary, and image info
+	let shows = res.data;
+	shows = shows.map((result) => {
+		return {
+			id: result.show.id,
+			name: result.show.name,
+			summary: result.show.summary,
+			image: result.show.image.medium ? result.show.image.medium : 'https://tinyurl.com/tv-missing'
+		};
+	});
 
-	return [
-		{
-			id,
-			name,
-			summary,
-			image
-		}
-	];
+	return shows;
 }
 
 /** Populate shows list:
@@ -67,7 +66,6 @@ function populateShows(shows) {
  *    - hide episodes area
  *    - get list of matching shows and show in shows list
  */
-
 $('#search-form').on('submit', async function handleSearch(evt) {
 	evt.preventDefault();
 
@@ -85,34 +83,28 @@ $('#search-form').on('submit', async function handleSearch(evt) {
  *      { id, name, season, number }
  */
 async function getEpisodes(id) {
-	const res = await axios.get(`http://api.tvmaze.com/shows/${id}/episodes`);
+	const episodeList = await axios.get(`http://api.tvmaze.com/shows/${id}/episodes`);
 
-	// Use map() to iterate through episode array and return a new array of objects with episode id, name, season and number
-	const episodes = res.data.map((episode) => ({
-		id: episode.id,
-		name: episode.name,
-		season: episode.season,
-		number: episode.number
-	}));
-
-	// console.log(episodes);
-	return episodes;
+	return episodeList.data;
 }
 
-// TODO (5/15): finish populateEpisodes and button event listener
+// Empties ul containing episode list and then iterates over an array of episodes, populating the ul with name, season, and number for each.
 function populateEpisodes(episodes) {
 	const $ul = $('#episodes-list');
+	$ul.empty();
 
 	for (let episode of episodes) {
-		let $newEp = $(`<li>${episode.name} (season ${episode.season}, number ${episode.number})`);
+		let $newEp = $(`<li>${episode.name} (season ${episode.season}, number ${episode.number})</li>`);
+
 		$ul.append($newEp);
 	}
 
 	$('#episodes-area').show();
 }
 
-$('episodes-list').on('click', 'getEpisodes', async function(e) {
-	const id = $(e.target).closest('.card').data('showId');
+// Upon click on button, locates the closest card and references the show id to pull episodes using getEpisodes, then populates using populateEpisodes
+$('#shows-list').on('click', '.getEpisodes', async function() {
+	const id = $(this).closest('.card').data('show-id');
 	const episodes = await getEpisodes(id);
 	populateEpisodes(episodes);
 });
